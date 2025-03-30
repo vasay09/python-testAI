@@ -38,27 +38,23 @@ async def websocket_endpoint(websocket: WebSocket):
                 "content": user_input
             })
 
-            response_ai = chat(model='llama3.1',
-                               messages=chat_history,
-                               #tools=OLLAMA_TOOLS,
-                               stream=True,)
-
-            # тут принимаем сообщение как поток и соберем его в полный ответ
-            ai_message = ''
-            for chunk in response_ai:
-                print(chunk['message']['content'], end='', flush=True)
-                ai_message = ai_message + chunk['message']['content']
+            response: ChatResponse = chat(
+                'llama3.1',
+                messages=chat_history,
+                #tools=[add_two_numbers, subtract_two_numbers_tool],
+            )
 
             #вместо chat_history.append(ai_message.to_dict()) добавляем сообщение в историю!
             chat_history.append({
                 "role": "assistant",
-                "content": ai_message
+                "content": response.message.content
             })
 
+            print(response.message)
 
             await websocket.send_text(json.dumps({
                 "role": "assistant",
-                "content": ai_message
+                "content": response.message.content
             }))
 
 
