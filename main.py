@@ -7,7 +7,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from loguru import logger
 
-from config import HELICONE_API_KEY, GROQ_API_KEY, SYSTEM_PROMPT, TOOLS
+from config import HELICONE_API_KEY, GROQ_API_KEY, SYSTEM_PROMPT, TOOLS, OLLAMA_TOOLS
 
 app = FastAPI()
 
@@ -38,17 +38,29 @@ async def websocket_endpoint(websocket: WebSocket):
                 "content": user_input
             })
 
-            response_ai = chat(model='hf.co/bartowski/google_gemma-3-4b-it-GGUF:BF16', messages=chat_history, stream=True,)
+            response_ai = chat(model='llama3.1',
+                               messages=chat_history,
+                               #tools=OLLAMA_TOOLS,
+                               stream=True,)
 
-            answer = ''
+            # тут принимаем сообщение как поток и соберем его в полный ответ
+            ai_message = ''
             for chunk in response_ai:
                 print(chunk['message']['content'], end='', flush=True)
-                answer = answer + chunk['message']['content']
+                ai_message = ai_message + chunk['message']['content']
+
+            #вместо chat_history.append(ai_message.to_dict()) добавляем сообщение в историю!
+            chat_history.append({
+                "role": "assistant",
+                "content": ai_message
+            })
+
 
             await websocket.send_text(json.dumps({
                 "role": "assistant",
-                "content": answer
+                "content": ai_message
             }))
+
 
     except WebSocketDisconnect:
         logger.error("Клиент разорвал соединение")
