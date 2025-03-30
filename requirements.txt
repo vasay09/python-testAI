@@ -1,5 +1,6 @@
 fastapi==0.115.8
 uvicorn[standart]
+dotenv
 python-dotenv==1.0.1
 loguru==0.7.3
 requests==2.32.3
@@ -9,3 +10,4 @@ beautifulsoup4==4.13.3
 setuptools==75.8.0
 
 openai~=1.69.0
+ollama
