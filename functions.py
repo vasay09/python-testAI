@@ -121,3 +121,22 @@ async def fetch_page(url: str) -> str:
         logger.error(f"Ошибка при посещении веб сайта: {str(e)}")
         return f"Ошибка при посещении веб сайта: {str(e)[:5000]}"
 
+def add_two_numbers(a: int, b: int) -> int:
+  """
+  Add two numbers
+
+  Args:
+    a (int): The first number
+    b (int): The second number
+
+  Returns:
+    int: The sum of the two numbers
+  """
+
+  # The cast is necessary as returned tool call arguments don't always conform exactly to schema
+  # E.g. this would prevent "what is 30 + 12" to produce '3012' instead of 42
+  return int(a) + int(b)
+
+
+def subtract_two_numbers(a: int, b: int) -> int:
+  return int(a) - int(b)
