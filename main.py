@@ -49,9 +49,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 'fetch_page':fetch_page
 
             }
-
+            # https://ollama.com/PetrosStav/gemma3-tools:12b
             response: ChatResponse = chat(
-                model='llama3.1',
+                model='PetrosStav/gemma3-tools:12b',
                 messages=chat_history,
                 tools=[add_two_numbers, save_code, run_command, search, fetch_page]
             )
@@ -75,7 +75,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 chat_history.append({'role': 'tool', 'content': str(output), 'name': tool.function.name})
 
                 # Get final response from model with function outputs
-                final_response = chat(model='llama3.1', messages=chat_history)
+                final_response = chat(model='PetrosStav/gemma3-tools:12b', messages=chat_history)
                 print('Final response:', final_response.message.content)
 
             else:

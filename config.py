@@ -9,6 +9,7 @@ HELICONE_API_KEY = os.getenv("HELICONE_API_KEY")
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 SERPER_API_KEY = os.getenv("SERPER_API_KEY")
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 SYSTEM_PROMPT = """Ты — AI-агент, специализирующийся на автоматизации задач с помощью Python.
 Твоя основная задача — генерировать корректный Python-код, сразу сохранять сгенерированные файлы, тестировать их выполнение и обеспечивать решение конкретных задач.
