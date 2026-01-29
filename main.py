@@ -6,11 +6,20 @@ from ollama import ChatResponse
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from loguru import logger
+from openai import AsyncOpenAI
 
 from config import SYSTEM_PROMPT, TOOLS
-from functions import add_two_numbers, subtract_two_numbers, save_code, run_command, search, fetch_page
+from functions import run_command, save_code, search, fetch_page
 
 app = FastAPI()
+
+file_format = "{time:YYYY-MM-DD HH:mm:ss} | {level}"
+logger.add("bot.log", level="DEBUG", format="{time:YYYY-MM-DD HH:mm:ss} | {level} | {message}", rotation="1 MB")
+
+openai_client = AsyncOpenAI(
+    base_url='http://localhost:11434/v1/',
+    api_key='ollama',
+)
 
 @app.get("/")
 async def index():
@@ -40,65 +49,69 @@ async def websocket_endpoint(websocket: WebSocket):
                 "content": user_input
             })
 
-            available_functions = {
-                'add_two_numbers': add_two_numbers,
-                'subtract_two_numbers': subtract_two_numbers,
-                'save_code': save_code,
-                'run_command': run_command,
-                'search': search,
-                'fetch_page':fetch_page
+            while True:
+                ai_response = await openai_client.chat.completions.create(
+                    model="gpt-oss:20b",  # gpt-4o-mini
+                    messages=chat_history,
+                    tools=TOOLS,
+                    tool_choice="auto",
+                    parallel_tool_calls=False
+                )
 
-            }
-            # https://ollama.com/PetrosStav/gemma3-tools:12b
-            response: ChatResponse = chat(
-                model='PetrosStav/gemma3-tools:12b',
-                messages=chat_history,
-                tools=[add_two_numbers, save_code, run_command, search, fetch_page]
-            )
+                ai_message = ai_response.choices[0].message
 
-            if response.message.tool_calls:
-                # There may be multiple tool calls in the response
-                for tool in response.message.tool_calls:
-                    # Ensure the function is available, and then call it
-                    if function_to_call := available_functions.get(tool.function.name):
-                        print('Calling function:', tool.function.name)
-                        print('Arguments:', tool.function.arguments)
-                        output = function_to_call(**tool.function.arguments)
-                        print('Function output:', output)
-                    else:
-                        print('Function', tool.function.name, 'not found')
+                # chat_history.append(ai_message.to_dict())
 
-            # Only needed to chat with the model using the tool call results
-            if response.message.tool_calls:
-                # Add the function response to messages for the model to use
-                chat_history.append(response.message)
-                chat_history.append({'role': 'tool', 'content': str(output), 'name': tool.function.name})
+                chat_history.append({
+                    "role": "assistant",
+                    "content": ai_message.content,
+                    "tool_calls": ai_message.tool_calls
+                })
 
-                # Get final response from model with function outputs
-                final_response = chat(model='PetrosStav/gemma3-tools:12b', messages=chat_history)
-                print('Final response:', final_response.message.content)
+                logger.debug(f"Ответ от ассистента: {ai_message.content}")
 
-            else:
-                print('No tool calls returned from model')
+                if not ai_message.tool_calls:
+                    await websocket.send_text(json.dumps({
+                        "role": "assistant",
+                        "content": ai_message.content
+                    }))
+                    break
 
-            #вместо chat_history.append(ai_message.to_dict()) добавляем сообщение в историю!
-            chat_history.append({
-                "role": "assistant",
-                "content": response.message.content
-            })
+                for tool_call in ai_message.tool_calls:
+                    func_name = tool_call.function.name
+                    args = json.loads(tool_call.function.arguments)
 
-            print(response.message.tool_calls)
+                    result = ""
 
-            await websocket.send_text(json.dumps({
-                "role": "assistant",
-                "content": final_response.message.content #response.message.content
-            }))
+                    try:
+                        if func_name == "run_command":
+                            if "input_str" in args:
+                                result = run_command(args["command"], args["input_str"])
+                            else:
+                                result = run_command(args["command"])
+
+                        elif func_name == "save_code":
+                            result = save_code(args["code"], args["filename"])
+                        elif func_name == "search":
+                            result = search(args["query"])
+                        elif func_name == "fetch_page":
+                            result = await fetch_page(args["url"])
+                        else:
+                            result = f"Неизвестная функция {func_name}"
+                    except Exception as e:
+                        result = f"Ошибка вызова функции {func_name} {str(e)}"
+
+                    chat_history.append({
+                        "role": "tool",
+                        "content": result,
+                        "tool_call_id": tool_call.id
+                    })
+                    logger.debug(f"Ответ функции ассистенту: {result}")
 
 
     except WebSocketDisconnect:
-        logger.error("Клиент разорвал соединение")
-
+        logger.error("Клиент отсоединил соединение")
 
 
 if __name__ == "__main__":
-    uvicorn.run("main:app", host="localhost", port=8000, reload=True)
+    uvicorn.run("main:app", host="localhost", port=8009, reload=False)

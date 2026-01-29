@@ -1,5 +1,6 @@
 import os
 import subprocess
+from http.client import responses
 
 import requests
 import asyncio
@@ -9,10 +10,11 @@ from playwright.async_api import async_playwright
 from playwright_stealth import stealth_async
 from bs4 import BeautifulSoup
 
-from config import SERPER_API_KEY, GOOGLE_API_KEY
+from config import SERPER_API_KEY
 
-def save_code(code: str, filename) -> str:
-    logger.info(f"Создаю файл в директории {filename}")
+
+def save_code2(code: str, filename: str) -> str:
+    logger.debug(f"Создаю файл в директории {filename}")
     try:
         os.makedirs("./ai", exist_ok=True)
         filepath = os.path.join("./ai", filename)
@@ -20,14 +22,32 @@ def save_code(code: str, filename) -> str:
         with open(filepath, "w", encoding="UTF-8") as f:
             f.write(code)
 
-        return f"Файл {filename} успешно создан"
+        return f"Файл {filename} успешно был создан"
     except Exception as e:
         logger.error(f"Какая-то ошибка: {str(e)}")
         return f"Ошибка создания файла: {str(e)[:5000]}"
 
 
+def save_code(code: str, filepath: str) -> str:
+    logger.debug(f"Создаю файл в директории {filepath}")
+    try:
+        # Если в пути нет слешей, используем "./ai" как базовую директорию
+        if os.path.sep not in filepath:
+            filepath = os.path.join("./ai", filepath)
+
+        # Создаем директорию по указанному пути
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+        # Записываем код в файл
+        with open(filepath, "w", encoding="UTF-8") as f:
+            f.write(code)
+        return f"Файл {os.path.basename(filepath)} успешно был создан"
+    except Exception as e:
+        logger.error(f"Ошибка создания файла: {str(e)}")
+        return f"Ошибка создания файла: {str(e)[:5000]}"
+
+
 def run_command(command: str, input_str: str | None = None) -> str:
-    logger.info(f"Выполняю команду {command}, входные данные: {str(input_str)}")
+    logger.debug(f"Выполняю команду {command}, входные данные: {str(input_str)}")
 
     os.makedirs("./ai", exist_ok=True)
 
@@ -52,8 +72,9 @@ def run_command(command: str, input_str: str | None = None) -> str:
         logger.error(f"Ошибка при выполнении команды: {str(e)}")
         return f"Ошибка при выполнении команды: {str(e)[:5000]}"
 
+
 def search(query: str) -> str:
-    logger.info(f"Ищу в интернете: {query}")
+    logger.info(f"Ищу в интернете {query}")
 
     try:
         response = requests.post(
@@ -119,41 +140,3 @@ async def fetch_page(url: str) -> str:
     except Exception as e:
         logger.error(f"Ошибка при посещении веб сайта: {str(e)}")
         return f"Ошибка при посещении веб сайта: {str(e)[:5000]}"
-
-def add_two_numbers(a: int, b: int) -> int:
-  # The cast is necessary as returned tool call arguments don't always conform exactly to schema
-  # E.g. this would prevent "what is 30 + 12" to produce '3012' instead of 42
-  return int(a) + int(b)
-
-def subtract_two_numbers(a: int, b: int) -> int:
-  return int(a) - int(b)
-
-def search_google(query: str) -> str:
-    logger.info(f"Ищу в google: {query}")
-
-    url = "https://www.googleapis.com/customsearch/v1"
-
-    cx = "05c1002bbb1894998"
-    params = {
-        'q': query,
-        'key': GOOGLE_API_KEY,
-        'cx': cx,
-        'num': 3
-    }
-
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-
-        if response.status_code in [200, 201]:
-            data_json = response.json()
-            data = []
-            for item in data_json.get('items',[]):
-                item_str = f"{item.get('title')}: {item.get('snippet')}"
-                data.append(item_str)
-
-            return "\n".join(data)
-
-    except requests.exceptions.RequestException as e:
-        logger.error(f"Ошибка выполнения запроса: {e}")
-        return None
